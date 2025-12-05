@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>查看秘密</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            text-align: center;
+            padding: 20px;
+            background-color: #2f3542; /* 深色背景，更有神秘感 */
+            color: white; /* 白字 */
+        }
+        .container {
+            background: #57606f;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        #content {
+            font-size: 18px;
+            white-space: pre-wrap; /* 保留换行符 */
+            margin: 20px 0;
+            color: #7bed9f; /* 荧光绿文字 */
+        }
+        #status {
+            color: #ff6b81;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>🔒 机密信息</h2>
+    <div id="status">正在解密数据...</div>
+    <div id="content"></div>
+</div>
+
+<script>
+    // 页面加载完成后立即执行
+    window.onload = async function() {
+        // 1. 从浏览器地址栏分析 URL
+        // 假设地址是 http://localhost:8080/view/ID123?key=ABC
+        const pathParts = window.location.pathname.split('/');
+        const id = pathParts[pathParts.length - 1]; // 拿到 "ID123"
+
+        // 拿到 "?key=ABC" 里的 ABC
+        const params = new URLSearchParams(window.location.search);
+        const key = params.get("key");
+
+        if (!id || !key) {
+            document.getElementById("status").innerText = "❌ 无效的链接";
+            return;
+        }
+
+        // 2. 拿着 ID 和 Key 去找 Go 后端要数据
+        // 注意：这里我们请求的是 API 接口 /api/view/
+        try {
+            const response = await fetch(`/api/view/${id}?key=${key}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                document.getElementById("status").innerText = "✅ 阅后即焚已生效，数据已销毁";
+                document.getElementById("content").innerText = data.data; // 显示解密后的明文
+            } else {
+                document.getElementById("status").innerText = "⚠️ " + data.error;
+            }
+        } catch (e) {
+            document.getElementById("status").innerText = "网络错误";
+        }
+    };
+</script>
+</body>
+</html>

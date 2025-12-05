@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>阅后即焚 - 安全传输</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif; /* 字体 */
+            max-width: 600px; /* 页面最大宽度，防止在大屏幕上太宽 */
+            margin: 50px auto; /* 上下边距50px，左右自动居中 */
+            padding: 20px;
+            background-color: #f4f4f9; /* 浅灰背景 */
+            text-align: center; /* 文字居中 */
+        }
+        textarea {
+            width: 100%; /* 占满容器宽度 */
+            height: 150px;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px; /* 圆角 */
+            border: 1px solid #ccc;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #ff4757; /* 红色按钮 */
+            color: white;
+            border: none;
+            cursor: pointer; /* 鼠标放上去变小手 */
+            font-size: 16px;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #ff6b81; /* 鼠标悬停变浅红 */
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #eccc68;
+            display: none; /* 默认隐藏，生成链接后才显示 */
+            word-break: break-all; /* 链接太长自动换行 */
+        }
+    </style>
+</head>
+<body>
+
+<h1> 阅后即焚 </h1>
+<p>输入你的秘密，生成一次性链接。一旦被阅读，立即销毁。</p>
+
+<textarea id="secretInput" placeholder="在此输入秘密内容..."></textarea>
+<br>
+<button onclick="sendSecret()">生成链接</button>
+
+<div id="result"></div>
+
+<script>
+    async function sendSecret() {
+        // 1. 获取用户输入
+        // document.getElementById 是最常用的抓取元素的方法
+        const text = document.getElementById("secretInput").value;
+        if (!text) {
+            alert("写点东西再点嘛！");
+            return;
+        }
+
+        // 2. 发送请求给 Go 后端 (Fetch API)
+        // 相当于在浏览器里偷偷执行了一次 curl -X POST
+        try {
+            const response = await fetch("/api/burn", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: text }) // 把数据转成 JSON 字符串
+            });
+
+            const data = await response.json(); // 解析后端返回的 JSON
+
+            if (response.ok) {
+                // 3. 如果成功，把链接显示出来
+                const resultDiv = document.getElementById("result");
+                resultDiv.style.display = "block"; // 显示盒子
+                // 把链接放进去，data.url 就是后端返回的那个 url
+                resultDiv.innerHTML = `
+                        <p>你的秘密链接（点击复制）：</p>
+                        <a href="${data.url}" target="_blank">${data.url}</a>
+                    `;
+            } else {
+                alert("出错了: " + data.error);
+            }
+        } catch (error) {
+            console.error("Error:", error);
+            alert("网络连接失败");
+        }
+    }
+</script>
+</body>
+</html>
