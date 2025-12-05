@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  #服务1：Redis数据库
+  redis:
+    image: redis:alpine
+    container_name: burn-redis
+    ports:
+        - "16379:6379" # 暴露端口便于查看
+    restart: always
+
+    #服务2：Go后端
+  app:
+      build: . # 在当前目录寻找 Dockerfile 构建
+      container_name: burn-app
+      ports:
+        - "8080:8080" # 将容器的8080端口映射到主机的8080端口
+      depends_on:
+        - redis # 确保在启动app之前启动redis
+      environment:
+        - GIN_MODE=release # 设置Gin框架为生产模式
