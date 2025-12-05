@@ -24,7 +24,7 @@ func IPwRateLimiter() gin.HandlerFunc {
 		window := time.Duration(cfg.WindowSeconds) * time.Second
 
 		//检查限流
-		allowed, err := storage.AllowRequest(ip, limit, time.Minute)
+		allowed, err := storage.AllowRequest(ip, limit, window)
 		if err != nil {
 			//如果Redis出错，选择放行，记录日志
 			fmt.Println("限流器 Redis 错误：%v", err)
