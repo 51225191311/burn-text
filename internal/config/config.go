@@ -8,8 +8,9 @@ import (
 
 // Config 结构体映射config.yaml中的配置
 type Config struct {
-	Server ServerConfig ` mapstructure:"server"`
-	Redis  RedisConfig  `mapstructure:"redis"`
+	Server    ServerConfig    ` mapstructure:"server"`
+	Redis     RedisConfig     `mapstructure:"redis"`
+	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
 }
 
 type ServerConfig struct {
@@ -22,6 +23,11 @@ type RedisConfig struct {
 	Password   string `mapstructure:"password"`
 	DB         int    `mapstructure:"db"`
 	TTLMinutes int    `mapstructure:"ttl_minutes"`
+}
+
+type RateLimitConfig struct {
+	Count         int64 `mapstructure:"count"`
+	WindowSeconds int   `mapstructure:"window_seconds"`
 }
 
 var GlobalConfig *Config

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"burn-text/internal/config"
 	"burn-text/storage"
 	"fmt"
 	"net/http"
@@ -15,8 +16,15 @@ func IPwRateLimiter() gin.HandlerFunc {
 		//获取客户端IP
 		ip := c.ClientIP()
 
+		//从配置中读取
+		cfg := config.GlobalConfig.RateLimit
+
+		limit := cfg.Count
+		//原有配置文件的60（int）转换为time.Duration
+		window := time.Duration(cfg.WindowSeconds) * time.Second
+
 		//检查限流
-		allowed, err := storage.AllowRequest(ip, 5, time.Minute)
+		allowed, err := storage.AllowRequest(ip, limit, time.Minute)
 		if err != nil {
 			//如果Redis出错，选择放行，记录日志
 			fmt.Println("限流器 Redis 错误：%v", err)
