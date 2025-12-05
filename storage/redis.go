@@ -47,3 +47,23 @@ func GetAndDelete(id string) (string, error) {
 
 	return val, nil
 }
+
+func AllowRequest(ip string, limit int64, window time.Duration) (bool, error) {
+	//构建专属key
+	key := "rate_limit:" + ip
+
+	count, err := rdb.Incr(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+
+	if count == 1 {
+		rdb.Expire(ctx, key, window)
+	}
+
+	if count > limit {
+		return false, nil
+	}
+
+	return true, nil
+}

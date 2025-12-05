@@ -3,6 +3,7 @@ package main
 import (
 	"burn-text/internal/config"
 	"burn-text/internal/handler"
+	"burn-text/internal/middleware"
 	"burn-text/storage"
 	"fmt"
 	"net/http"
@@ -42,7 +43,7 @@ func main() {
 	//创建接口
 	api := r.Group("/api")
 	{
-		api.POST("/burn", handler.CreateSecret)
+		api.POST("/burn", middleware.IPwRateLimiter(), handler.CreateSecret)
 		api.GET("/view/:id", handler.GetSecret)
 	}
 
