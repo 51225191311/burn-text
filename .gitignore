@@ -9,6 +9,7 @@ main.exe
 main
 
 config.yaml
+!config.docker.yaml
 
 *.log
 tmp/

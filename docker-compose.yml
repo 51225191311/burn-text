@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  #服务1：Redis数据库
+  #Redis数据库
   redis:
     image: redis:alpine
     container_name: burn-redis
@@ -9,7 +9,7 @@ services:
         - "16379:6379" # 暴露端口便于查看
     restart: always
 
-    #服务2：Go后端
+    #Go后端
   app:
       build: . # 在当前目录寻找 Dockerfile 构建
       container_name: burn-app
@@ -19,3 +19,4 @@ services:
         - redis # 确保在启动app之前启动redis
       environment:
         - GIN_MODE=release # 设置Gin框架为生产模式
+        - APP_ENV=docker # 指定使用docker配置文件

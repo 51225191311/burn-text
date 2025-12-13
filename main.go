@@ -3,29 +3,40 @@ package main
 import (
 	"burn-text/internal/config"
 	"burn-text/internal/handler"
+	"burn-text/internal/logger"
 	"burn-text/internal/middleware"
 	"burn-text/storage"
-	"fmt"
+	"time"
+
+	ginzap "github.com/gin-contrib/zap"
+
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func main() {
 	//初始化配置
 	config.InitConfig()
 
+	//初始化日志
+	logger.InitLogger(config.GlobalConfig.Server.Mode)
+	defer logger.Log.Sync() //退出时刷新缓存
+
 	//初始化Redis
 	if err := storage.InitRedis(); err != nil {
-		fmt.Printf("连接Redis失败: %v\n", err)
-		fmt.Println("请检查Docker是否启动成功，以及是否执行了docker run ...")
+		logger.Log.Fatal("Redis连接失败", zap.Error(err))
 		return
 	}
-	fmt.Println("Redis连接成功")
+	logger.Log.Info("Redis连接成功", zap.String("addr", config.GlobalConfig.Redis.Addr))
 
 	//设置Gin模式
 	gin.SetMode(config.GlobalConfig.Server.Mode)
-	r := gin.Default()
+	r := gin.New()
+
+	r.Use(ginzap.Ginzap(logger.Log, time.RFC3339, true))
+	r.Use(ginzap.RecoveryWithZap(logger.Log, true))
 
 	//加载HTML模板，并且HTML文件都在templates目录下
 	r.LoadHTMLGlob("templates/*")
@@ -48,6 +59,6 @@ func main() {
 	}
 
 	port := config.GlobalConfig.Server.Port
-	fmt.Printf("服务启动在 http://localhost:%s\n", port)
+	logger.Log.Info("服务器启动", zap.String("port", port))
 	r.Run(":" + port)
 }

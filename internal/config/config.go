@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"os"
 
 	"github.com/spf13/viper"
 )
@@ -33,9 +34,16 @@ type RateLimitConfig struct {
 var GlobalConfig *Config
 
 func InitConfig() {
-	viper.SetConfigName("config") // 配置文件名
-	viper.SetConfigType("yaml")   // 配置
-	viper.AddConfigPath(".")      // 搜索路径：当前目录
+	env := os.Getenv("APP_ENV") //判断环境变量
+	configName := "config"      //默认读取comfig.yaml
+
+	if env == "Docker" {
+		configName = "config_docker" //如果是Docker环境，读取config_docker.yaml
+	}
+
+	viper.SetConfigName(configName) // 配置文件名
+	viper.SetConfigType("yaml")     // 配置
+	viper.AddConfigPath(".")        // 搜索路径：当前目录
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatalf("读取配置文件失败: %v", err)

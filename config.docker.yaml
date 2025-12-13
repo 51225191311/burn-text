@@ -1,0 +1,14 @@
+server:
+  port: "8080"
+  mode: "debug"
+  domain: "localhost:8080"
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+  ttl_minutes: 10
+
+rate_limit:
+  count: 5
+  window_seconds: 60
