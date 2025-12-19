@@ -6,6 +6,10 @@ import (
 	"burn-text/internal/logger"
 	"burn-text/internal/middleware"
 	"burn-text/storage"
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	ginzap "github.com/gin-contrib/zap"
@@ -58,7 +62,37 @@ func main() {
 		api.GET("/view/:id", handler.GetSecret)
 	}
 
+	//增加优雅关机
 	port := config.GlobalConfig.Server.Port
 	logger.Log.Info("服务器启动", zap.String("port", port))
-	r.Run(":" + port)
+
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
+	}
+
+	//在独立的Goroutine中启动服务，让主线程不被阻塞继续监听
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Log.Fatal("服务启动失败", zap.Error(err))
+		}
+	}()
+
+	//创建信号通道
+	quit := make(chan os.Signal, 1)
+
+	//监听Ctrl+C和Docker stop
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	<-quit //阻塞直到收到信号
+	logger.Log.Info("正在关闭服务...")
+
+	//创建5秒的超时上下文
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		logger.Log.Fatal("服务被强制关闭", zap.Error(err))
+	}
+	logger.Log.Info("服务已退出")
 }
