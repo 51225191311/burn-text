@@ -6,12 +6,15 @@ import (
 	"burn-text/internal/config"
 	"burn-text/storage"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 
 	"net/http"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func CreateSecret(c *gin.Context) {
@@ -19,6 +22,17 @@ func CreateSecret(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误"})
 		return
+	}
+
+	//处理密码
+	var pwdHash string
+	if req.Password != "" {
+		hashBytes, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "密码处理失败"})
+			return
+		}
+		pwdHash = string(hashBytes)
 	}
 
 	//生成Key
@@ -32,15 +46,23 @@ func CreateSecret(c *gin.Context) {
 		return
 	}
 
+	//构造存储对象
+	dataObj := internal.SecretData{
+		CipherText:   cipherText,
+		PasswordHash: pwdHash,
+	}
+	dataJson, _ := json.Marshal(dataObj)
+
 	//生成ID
 	idBytes, _ := crypto.GenerateKey()
 	id := hex.EncodeToString(idBytes[:8])
 
 	//存入Redis
 	ttl := time.Duration(config.GlobalConfig.Redis.TTLMinutes) * time.Minute
-	err = storage.Save(id, cipherText, ttl)
+	err = storage.Save(id, string(dataJson), ttl)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "存储失败"})
+		return
 	}
 
 	//生成URL
@@ -57,6 +79,8 @@ func GetSecret(c *gin.Context) {
 	id := c.Param("id")
 	keyString := c.Query("key")
 
+	visitPassword := c.GetHeader("X-Access-Password")
+
 	if keyString == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少密钥"})
 		return
@@ -69,6 +93,31 @@ func GetSecret(c *gin.Context) {
 		return
 	}
 
+	var dataObj internal.SecretData
+	if err := json.Unmarshal([]byte(cipherText), &dataObj); err != nil {
+		//兼容旧数据，如果解析失败直接使用cipherText
+		dataObj.CipherText = cipherText
+	}
+
+	//验证密码
+	if dataObj.PasswordHash != "" {
+		if visitPassword == "" {
+			//密码不对，数据塞回，但存在并发风险
+			_ = storage.Save(id, cipherText, 10*time.Minute)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "需要密码访问"})
+			return
+		}
+
+		//验证哈希
+		err := bcrypt.CompareHashAndPassword([]byte(dataObj.PasswordHash), []byte(visitPassword))
+		if err != nil {
+			//密码不对，数据塞回，但存在并发风险
+			_ = storage.Save(id, cipherText, 10*time.Minute)
+			c.JSON(http.StatusForbidden, gin.H{"error": "访问密码错误"})
+			return
+		}
+	}
+
 	//解码Key
 	keyBytes, _ := hex.DecodeString(keyString)
 	if err != nil {
@@ -77,7 +126,8 @@ func GetSecret(c *gin.Context) {
 	}
 
 	//解密文本
-	plainText, err := crypto.Decrypt(cipherText, keyBytes)
+	keyBytes, _ = hex.DecodeString(keyString)
+	plainText, err := crypto.Decrypt(dataObj.CipherText, keyBytes)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": "密钥错误,解密失败"})
 		return

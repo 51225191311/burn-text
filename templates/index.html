@@ -2,92 +2,130 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
+    <!-- 适配手机屏幕，让网页在手机上不缩放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>阅后即焚 - 安全传输</title>
     <style>
+        /* --- 简单的装修样式 --- */
         body {
-            font-family: Arial, sans-serif; /* 字体 */
-            max-width: 600px; /* 页面最大宽度，防止在大屏幕上太宽 */
-            margin: 50px auto; /* 上下边距50px，左右自动居中 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
             padding: 20px;
-            background-color: #f4f4f9; /* 浅灰背景 */
-            text-align: center; /* 文字居中 */
+            background-color: #f4f4f9;
+            text-align: center;
         }
+        /* 文本大框样式 */
         textarea {
-            width: 100%; /* 占满容器宽度 */
+            width: 100%;
             height: 150px;
-            padding: 10px;
-            margin-bottom: 20px;
-            border-radius: 5px; /* 圆角 */
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 8px;
             border: 1px solid #ccc;
+            font-size: 16px;
+            box-sizing: border-box; /* 让padding不撑大盒子 */
         }
+        /* 新增：密码框样式 */
+        .password-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        /* 按钮样式 */
         button {
-            padding: 10px 20px;
-            background-color: #ff4757; /* 红色按钮 */
+            padding: 12px 30px;
+            background-color: #ff4757;
             color: white;
             border: none;
-            cursor: pointer; /* 鼠标放上去变小手 */
-            font-size: 16px;
-            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            border-radius: 30px;
+            transition: background 0.3s;
         }
         button:hover {
-            background-color: #ff6b81; /* 鼠标悬停变浅红 */
+            background-color: #ff6b81;
         }
+        /* 结果显示区域 */
         #result {
-            margin-top: 20px;
-            padding: 10px;
+            margin-top: 25px;
+            padding: 15px;
             background: #eccc68;
-            display: none; /* 默认隐藏，生成链接后才显示 */
-            word-break: break-all; /* 链接太长自动换行 */
+            color: #2f3542;
+            display: none;
+            border-radius: 8px;
+            word-break: break-all;
         }
+        a { color: #2f3542; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<h1> 阅后即焚 </h1>
-<p>输入你的秘密，生成一次性链接。一旦被阅读，立即销毁。</p>
+<h1>🔥 阅后即焚 🔥</h1>
+<p style="color: #777;">数据一旦被阅读，立即物理销毁。</p>
 
+<!-- 1. 秘密内容输入框 -->
 <textarea id="secretInput" placeholder="在此输入秘密内容..."></textarea>
-<br>
-<button onclick="sendSecret()">生成链接</button>
 
+<!-- 2. 新增：密码输入框 (type="password" 会显示星号) -->
+<!-- placeholder 是灰色的提示字 -->
+<input type="password" id="passwordInput" class="password-input" placeholder="设置访问密码（可选，防误触）">
+
+<br>
+<!-- 3. 按钮 -->
+<button onclick="sendSecret()">生成加密链接</button>
+
+<!-- 4. 结果展示区 -->
 <div id="result"></div>
 
 <script>
     async function sendSecret() {
-        // 1. 获取用户输入
-        // document.getElementById 是最常用的抓取元素的方法
+        // --- A. 搜集数据 ---
         const text = document.getElementById("secretInput").value;
+        const password = document.getElementById("passwordInput").value; // 获取密码
+
         if (!text) {
-            alert("写点东西再点嘛！");
+            alert("写点东西再生成嘛！");
             return;
         }
 
-        // 2. 发送请求给 Go 后端 (Fetch API)
-        // 相当于在浏览器里偷偷执行了一次 curl -X POST
+        // --- B. 打包发送 ---
         try {
+            // 向 Go 后端发起 POST 请求
             const response = await fetch("/api/burn", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: text }) // 把数据转成 JSON 字符串
+                // 把内容和密码打包成 JSON 字符串
+                // 如果没填密码，password 就是空字符串 ""，后端会处理的
+                body: JSON.stringify({
+                    text: text,
+                    password: password
+                })
             });
 
-            const data = await response.json(); // 解析后端返回的 JSON
+            const data = await response.json();
 
+            // --- C. 处理结果 ---
             if (response.ok) {
-                // 3. 如果成功，把链接显示出来
+                // 成功：显示链接
                 const resultDiv = document.getElementById("result");
-                resultDiv.style.display = "block"; // 显示盒子
-                // 把链接放进去，data.url 就是后端返回的那个 url
+                resultDiv.style.display = "block";
                 resultDiv.innerHTML = `
-                        <p>你的秘密链接（点击复制）：</p>
+                        <p>🔗 你的秘密链接：</p>
                         <a href="${data.url}" target="_blank">${data.url}</a>
+                        <p style="font-size:12px; margin-top:10px;">(点击链接即可查看，阅后即焚)</p>
                     `;
             } else {
+                // 失败：弹窗报错
                 alert("出错了: " + data.error);
             }
         } catch (error) {
             console.error("Error:", error);
-            alert("网络连接失败");
+            alert("网络连接失败，请检查服务器");
         }
     }
 </script>

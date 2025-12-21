@@ -2,75 +2,116 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>查看秘密</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             max-width: 600px;
             margin: 50px auto;
             text-align: center;
             padding: 20px;
-            background-color: #2f3542; /* 深色背景，更有神秘感 */
-            color: white; /* 白字 */
+            background-color: #2f3542; /* 深色背景，黑客风 */
+            color: white;
         }
         .container {
             background: #57606f;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
+        h2 { margin-top: 0; }
         #content {
-            font-size: 18px;
-            white-space: pre-wrap; /* 保留换行符 */
-            margin: 20px 0;
-            color: #7bed9f; /* 荧光绿文字 */
+            font-size: 20px;
+            white-space: pre-wrap; /* 保留原来的换行格式 */
+            margin: 30px 0;
+            color: #7bed9f; /* 荧光绿，看起来像解密成功 */
+            font-family: 'Courier New', Courier, monospace; /* 等宽字体 */
+            word-break: break-all;
         }
         #status {
             color: #ff6b81;
             font-weight: bold;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h2>🔒 机密信息</h2>
-    <div id="status">正在解密数据...</div>
+    <h2>🔐 机密信息</h2>
+    <div id="status">正在建立安全连接...</div>
     <div id="content"></div>
 </div>
 
 <script>
-    // 页面加载完成后立即执行
-    window.onload = async function() {
-        // 1. 从浏览器地址栏分析 URL
-        // 假设地址是 http://localhost:8080/view/ID123?key=ABC
-        const pathParts = window.location.pathname.split('/');
-        const id = pathParts[pathParts.length - 1]; // 拿到 "ID123"
+    // 页面加载完成后，自动执行这个函数
+    window.onload = function() {
+        loadSecret(""); // 第一次尝试：不带密码
+    };
 
-        // 拿到 "?key=ABC" 里的 ABC
+    // 核心函数：去后台取数据
+    // 参数 pwd: 用户输入的密码，第一次调用时为空
+    async function loadSecret(pwd) {
+        // 1. 从浏览器地址栏里把 ID 和 Key 扣出来
+        // URL 例子: http://localhost:8080/view/ID123?key=ABC
+        const pathParts = window.location.pathname.split('/');
+        const id = pathParts[pathParts.length - 1]; // 拿到 ID123
+
         const params = new URLSearchParams(window.location.search);
-        const key = params.get("key");
+        const key = params.get("key"); // 拿到 ABC
 
         if (!id || !key) {
-            document.getElementById("status").innerText = "❌ 无效的链接";
+            document.getElementById("status").innerText = "❌ 无效的链接格式";
             return;
         }
 
-        // 2. 拿着 ID 和 Key 去找 Go 后端要数据
-        // 注意：这里我们请求的是 API 接口 /api/view/
         try {
-            const response = await fetch(`/api/view/${id}?key=${key}`);
+            // 2. 准备请求头
+            const headers = {};
+            if (pwd) {
+                // 如果有密码，就塞进 Header 里传给后端
+                // "X-Access-Password" 是我们在 Go 代码里约定的暗号
+                headers["X-Access-Password"] = pwd;
+            }
+
+            // 3. 发送请求
+            const response = await fetch(`/api/view/${id}?key=${key}`, {
+                headers: headers
+            });
+
             const data = await response.json();
 
+            // 4. 判断后端的脸色 (Status Code)
             if (response.ok) {
+                // --- 情况 A: 成功 (200) ---
                 document.getElementById("status").innerText = "✅ 阅后即焚已生效，数据已销毁";
-                document.getElementById("content").innerText = data.data; // 显示解密后的明文
+                document.getElementById("content").innerText = data.data; // 显示内容
+
+            } else if (response.status === 401) {
+                // --- 情况 B: 需要密码 (401) ---
+                document.getElementById("status").innerText = "🔒 正在等待身份验证...";
+
+                // 弹出一个浏览器自带的输入框
+                // prompt 会暂停代码执行，直到用户点确认
+                const userPwd = prompt("该内容被密码保护，请输入访问密码：");
+
+                if (userPwd) {
+                    // 如果用户输了密码，递归调用自己，再试一次！
+                    loadSecret(userPwd);
+                } else {
+                    document.getElementById("status").innerText = "❌ 你取消了输入，无法查看";
+                }
+
             } else {
+                // --- 情况 C: 其他错误 (比如 404 已销毁) ---
                 document.getElementById("status").innerText = "⚠️ " + data.error;
             }
+
         } catch (e) {
-            document.getElementById("status").innerText = "网络错误";
+            console.error(e);
+            document.getElementById("status").innerText = "网络连接错误";
         }
-    };
+    }
 </script>
 </body>
 </html>
